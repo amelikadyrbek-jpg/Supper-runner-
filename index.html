@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Super Runner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+        }
+        body {
+            background-color: #fce4ec;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            width: 100%;
+            max-width: 420px;
+            height: 100vh;
+            max-height: 750px;
+            background: linear-gradient(to bottom, #f3e5f5, #fce4ec, #e0f2f1);
+            position: relative;
+            overflow: hidden;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            border: 4px solid #f8bbd0;
+        }
+        /* Облака на фоне */
+        .cloud {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50px;
+            animation: moveClouds linear infinite;
+        }
+        @keyframes moveClouds {
+            from { right: -100px; }
+            to { right: 500px; }
+        }
+        /* Земля / Дорожка */
+        #ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100px;
+            background: linear-gradient(to bottom, #a7ffeb, #64ffda);
+            border-top: 6px solid #e0f2f1;
+        }
+        #ground-pattern {
+            position: absolute;
+            top: 0;
+            width: 200%;
+            height: 15px;
+            background: repeating-linear-gradient(45deg, #ff80ab, #ff80ab 15px, #ff4081 15px, #ff4081 30px);
+            animation: moveGround 1s linear infinite;
+        }
+        @keyframes moveGround {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-30px); }
+        }
+        /* Интерфейс */
+        #ui-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: #d81b60;
+            z-index: 10;
+            background: rgba(255,255,255,0.7);
+            padding: 8px 15px;
+            border-radius: 20px;
+        }
+        /* Персонаж */
+        #player {
+            position: absolute;
+            bottom: 100px;
+            left: 50px;
+            width: 50px;
+            height: 65px;
+            z-index: 5;
+            transition: height 0.1s;
+        }
+        /* Рисуем персонажа с помощью CSS */
+        .char-head {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(to bottom, #e0e7ff, #a7f3d0);
+            border-radius: 50%;
+            margin: 0 auto;
+            position: relative;
+            border: 2px solid #5eead4;
+        }
+        .char-tuft {
+            position: absolute;
+            top: -10px;
+            left: 12px;
+            width: 14px;
+            height: 12px;
+            background: #fef08a;
+            border-radius: 50% 50% 0 0;
+        }
+        .char-face {
+            position: absolute;
+            top: 10px;
+            right: 6px;
+            width: 15px;
+            height: 10px;
+        }
+        .char-eye {
+            width: 5px;
+            height: 5px;
+            background: #334155;
+            border-radius: 50%;
+            position: absolute;
+            top: 0;
+        }
+        .char-lip {
+            width: 10px;
+            height: 5px;
+            background: #f43f5e;
+            border-radius: 10px;
+            position: absolute;
+            bottom: 0;
+        }
+        .char-body {
+            width: 32px;
+            height: 25px;
+            background: linear-gradient(to bottom, #f472b6, #c084fc);
+            border-radius: 12px 12px 8px 8px;
+            margin: -4px auto 0;
+        }
+        /* Состояния персонажа */
+        .jump {
+            animation: jumpAnim 0.6s ease-out;
+        }
+        @keyframes jumpAnim {
+            0% { bottom: 100px; }
+            50% { bottom: 230px; }
+            100% { bottom: 100px; }
+        }
+        .duck #player-sprite {
+            transform: scaleY(0.5) translateY(30px);
+        }
+
+        /* Препятствия и конфеты */
+        .obstacle {
+            position: absolute;
+            bottom: 100px;
+            width: 35px;
+            height: 45px;
+            background: #ff5252;
+            border-radius: 8px 8px 0 0;
+            z-index: 4;
+            box-shadow: inset -4px 0 0 rgba(0,0,0,0.2);
+        }
+        .obstacle-high {
+            bottom: 165px;
+            height: 40px;
+            background: #ff7043;
+            border-radius: 50%;
+        }
+        .candy {
+            position: absolute;
+            bottom: 130px;
+            width: 25px;
+            height: 25px;
+            background: #ff4081;
+            border-radius: 50%;
+            z-index: 4;
+            box-shadow: 0 0 8px #ff80ab;
+        }
+
+        /* Сенсорные кнопки управления */
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            z-index: 10;
+            padding: 0 10px;
+        }
+        .btn {
+            width: 45%;
+            height: 65px;
+            background: linear-gradient(to bottom, #ff80ab, #ff4081);
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 18px;
+            box-shadow: 0 5px 0 #c2185b;
+            active { transform: translateY(3px); box-shadow: 0 2px 0 #c2185b; }
+        }
+        .btn-duck {
+            background: linear-gradient(to bottom, #80deea, #00acc1);
+            box-shadow: 0 5px 0 #00778f;
+        }
+
+        /* Экран старта и проигрыша */
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(253, 242, 248, 0.92);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            text-align: center;
+            padding: 20px;
+        }
+        .screen h1 { color: #d81b60; font-size: 32px; margin-bottom: 10px; }
+        .screen p { color: #880e4f; font-size: 18px; margin-bottom: 25px; }
+        .start-btn {
+            padding: 15px 40px;
+            font-size: 22px;
+            font-weight: bold;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            box-shadow: 0 6px 0 #2e7d32;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Облачка -->
+    <div class="cloud" style="width:70px; height:30px; top:40px; animation-duration:12s;"></div>
+    <div class="cloud" style="width:100px; height:40px; top:90px; animation-duration:8s;"></div>
+
+    <!-- UI Панель -->
+    <div id="ui-panel">
+        <div>❤️ <span id="lives">3</span></div>
+        <div>🍬 <span id="score">0</span></div>
+        <div>🏆 <span id="highscore">0</span></div>
+    </div>
+
+    <!-- Игрок -->
+    <div id="player">
+        <div id="player-sprite">
+            <div class="char-head">
+                <div class="char-tuft"></div>
+                <div class="char-face">
+                    <div class="char-eye"></div>
+                    <div class="char-lip"></div>
+                </div>
+            </div>
+            <div class="char-body"></div>
+        </div>
+    </div>
+
+    <!-- Земля -->
+    <div id="ground">
+        <div id="ground-pattern"></div>
+    </div>
+
+    <!-- Кнопки управления для телефона -->
+    <div id="controls">
+        <button class="btn btn-duck" id="btn-duck">⬇️ ПРИСЕСТЬ</button>
+        <button class="btn" id="btn-jump">⬆️ ПРЫЖОК</button>
+    </div>
+
+    <!-- Стартовый экран -->
+    <div id="start-screen" class="screen">
+        <h1>Super Runner</h1>
+        <p>Помоги луковому человечку собрать конфетки и обежать препятствия!</p>
+        <button class="start-btn" id="start-btn">ИГРАТЬ</button>
+    </div>
+
+    <!-- Экран Game Over -->
+    <div id="game-over-screen" class="screen hidden">
+        <h1>Упс! Игра окончена</h1>
+        <p>Твой счёт: <span id="final-score">0</span> 🍬</p>
+        <button class="start-btn" id="restart-btn">ЕЩЁ РАЗ</button>
+    </div>
+</div>
+
+<script>
+    const player = document.getElementById('player');
+    const livesEl = document.getElementById('lives');
+    const scoreEl = document.getElementById('score');
+    const highscoreEl = document.getElementById('highscore');
+    const container = document.getElementById('game-container');
+    
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    
+    let isJumping = false;
+    let isDucking = false;
+    let score = 0;
+    let lives = 3;
+    let gameSpeed = 5;
+    let isGameRunning = false;
+    let gameInterval, spawnInterval;
+    let highscore = localStorage.getItem('sr_highscore') || 0;
+    highscoreEl.textContent = highscore;
+
+    // Сенсорное управление
+    const btnJump = document.getElementById('btn-jump');
+    const btnDuck = document.getElementById('btn-duck');
+
+    btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
+    btnDuck.addEventListener('touchstart', (e) => { e.preventDefault(); duck(true); });
+    btnDuck.addEventListener('touchend', (e) => { e.preventDefault(); duck(false); });
+    
+    // Поддержка кликов мыши для тестов
+    btnJump.addEventListener('mousedown', jump);
+    btnDuck.addEventListener('mousedown', () => duck(true));
+    btnDuck.addEventListener('mouseup', () => duck(false));
+
+    function jump() {
+        if (isJumping || !isGameRunning) return;
+        isJumping = true;
+        player.classList.add('jump');
+        setTimeout(() => {
+            player.classList.remove('jump');
+            isJumping = false;
+        }, 600);
+    }
+
+    function duck(active) {
+        if (!isGameRunning) return;
+        isDucking = active;
+        if (active) {
+            player.classList.add('duck');
+        } else {
+            player.classList.remove('duck');
+        }
+    }
+
+    function startGame() {
+        score = 0;
+        lives = 3;
+        gameSpeed = 5;
+        scoreEl.textContent = score;
+        livesEl.textContent = lives;
+        isGameRunning = true;
+        
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+
+        // Удалить старые объекты
+        document.querySelectorAll('.obstacle, .candy').forEach(el => el.remove());
+
+        gameInterval = setInterval(updateGame, 20);
+        spawnLoop();
+    }
+
+    function spawnLoop() {
+        if (!isGameRunning) return;
+        
+        let random = Math.random();
+        if (random < 0.4) {
+            spawnObstacle(false); // Низкое препятствие
+        } else if (random < 0.7) {
+            spawnObstacle(true);  // Высокое препятствие (присесть)
+        } else {
+            spawnCandy();        // Конфетка
+        }
+
+        let nextSpawn = Math.max(800, 2000 - gameSpeed * 100);
+        spawnInterval = setTimeout(spawnLoop, nextSpawn);
+    }
+
+    function spawnObstacle(isHigh) {
+        const obs = document.createElement('div');
+        obs.classList.add('obstacle');
+        if (isHigh) obs.classList.add('obstacle-high');
+        obs.style.left = '420px';
+        container.appendChild(obs);
+    }
+
+    function spawnCandy() {
+        const candy = document.createElement('div');
+        candy.classList.add('candy');
+        candy.style.left = '420px';
+        candy.style.bottom = (Math.random() > 0.5 ? 130 : 180) + 'px';
+        container.appendChild(candy);
+    }
+
+    function updateGame() {
+        // Увеличение сложности
+        gameSpeed += 0.001;
+
+        // Движение объектов и проверка столкновений
+        const playerRect = player.getBoundingClientRect();
+
+        document.querySelectorAll('.obstacle').forEach(obs => {
+            let left = parseFloat(obs.style.left);
+            left -= gameSpeed;
+            obs.style.left = left + 'px';
+
+            let obsRect = obs.getBoundingClientRect();
+
+            if (checkCollision(playerRect, obsRect)) {
+                obs.remove();
+                lives--;
+                livesEl.textContent = lives;
+                if (lives <= 0) gameOver();
+            }
+
+            if (left < -40) obs.remove();
+        });
+
+        document.querySelectorAll('.candy').forEach(candy => {
+            let left = parseFloat(candy.style.left);
+            left -= gameSpeed;
+            candy.style.left = left + 'px';
+
+            let candyRect = candy.getBoundingClientRect();
+
+            if (checkCollision(playerRect, candyRect)) {
+                candy.remove();
+                score += 10;
+                scoreEl.textContent = score;
+            }
+
+            if (left < -40) candy.remove();
+        });
+    }
+
+    function checkCollision(r1, r2) {
+        return !(r1.right - 10 < r2.left || 
+                 r1.left + 10 > r2.right || 
+                 r1.bottom - 5 < r2.top || 
+                 r1.top + 10 > r2.bottom);
+    }
+
+    function gameOver() {
+        isGameRunning = false;
+        clearInterval(gameInterval);
+        clearTimeout(spawnInterval);
+        
+        if (score > highscore) {
+            highscore = score;
+            localStorage.setItem('sr_highscore', highscore);
+            highscoreEl.textContent = highscore;
+        }
+
+        document.getElementById('final-score').textContent = score;
+        gameOverScreen.classList.remove('hidden');
+    }
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+</script>
+
+</body>
+</html>
